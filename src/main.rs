@@ -4,6 +4,7 @@ extern crate tga;
 
 mod file_util;
 mod gl_util;
+mod vec_util;
 
 
 fn main() {

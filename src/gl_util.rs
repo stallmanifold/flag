@@ -1,11 +1,6 @@
 use gl;
-use gl::types::{
-    GLsizeiptr, GLenum, GLuint, GLint, GLfloat, GLushort, GLchar
-};
-use std::mem;
-use std::ffi::CString;
+use gl::types::{GLenum, GLuint, GLint, GLchar};
 use std::ptr;
-use std::env;
 use file_util;
 
 

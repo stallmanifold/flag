@@ -670,10 +670,29 @@ fn init_background_mesh(out_mesh: &mut FlagMesh) {
         gl::STATIC_DRAW
     );
 }
-/*
-void update_flag_mesh(
-    struct flag_mesh const *mesh,
-    struct flag_vertex *vertex_data,
-    GLfloat time
-);
-*/
+
+fn update_flag_mesh(
+    mesh: &FlagMesh, vertex_data: &mut [FlagVertex], time: GLfloat
+) {
+    let mut i = 0;
+    for t in 0..FLAG_Y_RES {
+        for s in 0..FLAG_X_RES {
+            let ss: GLfloat = FLAG_S_STEP * (s as GLfloat);
+            let tt: GLfloat = FLAG_T_STEP * (t as GLfloat);
+
+            calculate_flag_vertex(&mut vertex_data[i], ss, tt, time);
+
+            i += 1;
+        }
+    }
+
+    unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, mesh.vertex_buffer);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (FLAG_VERTEX_COUNT as usize * mem::size_of::<FlagVertex>()) as GLsizeiptr,
+            mem::transmute(&vertex_data[0]),
+            gl::STREAM_DRAW
+        );
+    }
+}

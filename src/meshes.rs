@@ -68,6 +68,34 @@ fn init_mesh(
     }
 }
 
+fn calculate_flag_vertex(
+    v: &mut FlagVertex,
+    s: GLfloat, t: GLfloat, time: GLfloat
+) {
+    let sgrad: [GLfloat; 3] = [
+        1.0 + 0.5*(0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * t * (t - 1.0),
+        0.0,
+        0.125*(
+            f32::sin(1.5*vec_util::M_PI * (time + s)) 
+            + s * f32::cos(1.5 * vec_util::M_PI * (time + s)) * (1.5 * vec_util::M_PI)
+        )
+    ];
+    let tgrad: [GLfloat; 3] = [
+        -(0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * (1.0 - s) * (2.0 * t - 1.0),
+        0.75,
+        0.0
+    ];
+
+    v.position[0] = s - (0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * (1.0 - 0.5 * s) * t * (t - 1.0);
+    v.position[1] = 0.75 * t - 0.375;
+    v.position[2] = 0.125 * (s * f32::sin(1.5* vec_util::M_PI*(time + s)));
+    v.position[3] = 0.0;
+
+    vec_util::vec_cross(&mut v.normal, &tgrad, &sgrad);
+    vec_util::vec_normalize(&mut v.normal);
+    v.normal[3] = 0.0;
+}
+
 fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
     let mut vertex_data = vec![FlagVertex::zero(); FLAG_VERTEX_COUNT as usize];
     let element_count = 6 * (FLAG_X_RES - 1) * (FLAG_Y_RES - 1);
@@ -126,35 +154,523 @@ fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
     vertex_data
 }
 
-fn calculate_flag_vertex(
-    v: &mut FlagVertex,
-    s: GLfloat, t: GLfloat, time: GLfloat
-) {
-    let sgrad: [GLfloat; 3] = [
-        1.0 + 0.5*(0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * t * (t - 1.0),
-        0.0,
-        0.125*(
-            f32::sin(1.5*vec_util::M_PI * (time + s)) 
-            + s * f32::cos(1.5 * vec_util::M_PI * (time + s)) * (1.5 * vec_util::M_PI)
-        )
-    ];
-    let tgrad: [GLfloat; 3] = [
-        -(0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * (1.0 - s) * (2.0 * t - 1.0),
-        0.75,
-        0.0
-    ];
+const FLAGPOLE_TRUCK_TOP: GLfloat           = 0.5;
+const FLAGPOLE_TRUCK_CROWN: GLfloat         = 0.41;
+const FLAGPOLE_TRUCK_BOTTOM: GLfloat        = 0.38;
+const FLAGPOLE_SHAFT_TOP: GLfloat           = 0.3775;
+const FLAGPOLE_SHAFT_BOTTOM: GLfloat        = -1.0;
+const FLAGPOLE_TRUCK_TOP_RADIUS: GLfloat    = 0.005;
+const FLAGPOLE_TRUCK_CROWN_RADIUS: GLfloat  = 0.020;
+const FLAGPOLE_TRUCK_BOTTOM_RADIUS: GLfloat = 0.015;
+const FLAGPOLE_SHAFT_RADIUS: GLfloat        = 0.010;
+const FLAGPOLE_SHININESS: GLfloat           = 4.0;
 
-    v.position[0] = s - (0.0625 + 0.03125 * f32::sin(vec_util::M_PI * time)) * (1.0 - 0.5 * s) * t * (t - 1.0);
-    v.position[1] = 0.75 * t - 0.375;
-    v.position[2] = 0.125 * (s * f32::sin(1.5* vec_util::M_PI*(time + s)));
-    v.position[3] = 0.0;
+fn init_background_mesh(out_mesh: &mut FlagMesh) {
+    const FLAGPOLE_RES: GLsizei = 16;
+    const FLAGPOLE_SLICE: GLsizei = 6;
 
-    vec_util::vec_cross(&mut v.normal, &tgrad, &sgrad);
-    vec_util::vec_normalize(&mut v.normal);
-    v.normal[3] = 0.0;
+    let FLAGPOLE_AXIS_XZ: [GLfloat; 2] = [-FLAGPOLE_SHAFT_RADIUS, 0.0];
+    
+    const FLAGPOLE_SPECULAR: [GLubyte; 4] = [255, 255, 192, 0];
+
+    let GROUND_LO: [GLfloat; 3] = [-0.875, FLAGPOLE_SHAFT_BOTTOM, -2.45];
+    let GROUND_HI: [GLfloat; 3] = [1.875, FLAGPOLE_SHAFT_BOTTOM,  0.20];
+    let WALL_LO: [GLfloat; 3] = [GROUND_LO[0], FLAGPOLE_SHAFT_BOTTOM, GROUND_HI[2]];
+    let WALL_HI: [GLfloat; 3] = [GROUND_HI[0], FLAGPOLE_SHAFT_BOTTOM + 3.0, GROUND_HI[2]];
+
+    static TEX_FLAGPOLE_LO: [GLfloat; 2] = [ 0.0,    0.0 ];
+    static TEX_FLAGPOLE_HI: [GLfloat; 2] = [ 0.03125,  1.0 ];
+    static TEX_GROUND_LO: [GLfloat; 2]   = [ 0.03125,  0.0078125 ];
+    static TEX_GROUND_HI: [GLfloat; 2]   = [ 0.515625, 0.9921875 ];
+    static TEX_WALL_LO: [GLfloat; 2]     = [ 0.515625, 0.0078125 ];
+    static TEX_WALL_HI: [GLfloat; 2]     = [ 1.0,      0.9921875 ];
+
+    macro_rules! __flagpole_t {
+        ($x:ident) => {
+            TEX_FLAGPOLE_LO[1] 
+                + (TEX_FLAGPOLE_HI[1] - TEX_FLAGPOLE_LO[1])
+                * ($x - FLAGPOLE_TRUCK_TOP) / (FLAGPOLE_SHAFT_BOTTOM - FLAGPOLE_TRUCK_TOP)
+        };
+    }
+
+    
+    let theta_step: GLfloat = 2.0 * vec_util::M_PI / (FLAGPOLE_RES as GLfloat);
+    let s_step: GLfloat = (TEX_FLAGPOLE_HI[0] - TEX_FLAGPOLE_LO[0]) / (FLAGPOLE_RES as GLfloat);
+    let t_truck_top: GLfloat    = TEX_FLAGPOLE_LO[1];
+    let t_truck_crown: GLfloat  = __flagpole_t!(FLAGPOLE_TRUCK_CROWN);
+    let t_truck_bottom: GLfloat = __flagpole_t!(FLAGPOLE_TRUCK_BOTTOM);
+    let t_shaft_top: GLfloat    = __flagpole_t!(FLAGPOLE_SHAFT_TOP);
+    let t_shaft_bottom: GLfloat = __flagpole_t!(FLAGPOLE_SHAFT_BOTTOM);
+
+    let flagpole_vertex_count: GLsizei = 2 + FLAGPOLE_RES * FLAGPOLE_SLICE;
+    let wall_vertex_count: GLsizei = 4;
+    let ground_vertex_count: GLsizei = 4;
+    let vertex_count: GLsizei = flagpole_vertex_count + wall_vertex_count + ground_vertex_count;
+
+    let mut element_i = 0;
+
+    let flagpole_element_count: GLsizei = 3 * ((FLAGPOLE_SLICE - 1) * 2 * FLAGPOLE_RES);
+    let wall_element_count: GLsizei = 6;
+    let ground_element_count: GLsizei = 6;
+    let element_count: GLsizei = flagpole_element_count + wall_element_count + ground_element_count;
+
+    let mut vertex_data = vec![FlagVertex::zero(); vertex_count as usize]; 
+
+    let mut element_data = vec![0 as GLushort; element_count as usize];
+
+    vertex_data[0].position[0] = GROUND_LO[0];
+    vertex_data[0].position[1] = GROUND_LO[1];
+    vertex_data[0].position[2] = GROUND_LO[2];
+    vertex_data[0].position[3] = 1.0;
+    vertex_data[0].normal[0]   = 0.0;
+    vertex_data[0].normal[1]   = 1.0;
+    vertex_data[0].normal[2]   = 0.0;
+    vertex_data[0].normal[3]   = 0.0;
+    vertex_data[0].texcoord[0] = TEX_GROUND_LO[0];
+    vertex_data[0].texcoord[1] = TEX_GROUND_LO[1];
+    vertex_data[0].shininess   = 0.0;
+    vertex_data[0].specular[0] = 0;
+    vertex_data[0].specular[1] = 0;
+    vertex_data[0].specular[2] = 0;
+    vertex_data[0].specular[3] = 0;
+
+    vertex_data[1].position[0] = GROUND_HI[0];
+    vertex_data[1].position[1] = GROUND_LO[1];
+    vertex_data[1].position[2] = GROUND_LO[2];
+    vertex_data[1].position[3] = 1.0;
+    vertex_data[1].normal[0]   = 0.0;
+    vertex_data[1].normal[1]   = 1.0;
+    vertex_data[1].normal[2]   = 0.0;
+    vertex_data[1].normal[3]   = 0.0;
+    vertex_data[1].texcoord[0] = TEX_GROUND_HI[0];
+    vertex_data[1].texcoord[1] = TEX_GROUND_LO[1];
+    vertex_data[1].shininess   = 0.0;
+    vertex_data[1].specular[0] = 0;
+    vertex_data[1].specular[1] = 0;
+    vertex_data[1].specular[2] = 0;
+    vertex_data[1].specular[3] = 0;
+
+    vertex_data[2].position[0] = GROUND_HI[0];
+    vertex_data[2].position[1] = GROUND_LO[1];
+    vertex_data[2].position[2] = GROUND_HI[2];
+    vertex_data[2].position[3] = 1.0;
+    vertex_data[2].normal[0]   = 0.0;
+    vertex_data[2].normal[1]   = 1.0;
+    vertex_data[2].normal[2]   = 0.0;
+    vertex_data[2].normal[3]   = 0.0;
+    vertex_data[2].texcoord[0] = TEX_GROUND_HI[0];
+    vertex_data[2].texcoord[1] = TEX_GROUND_HI[1];
+    vertex_data[2].shininess   = 0.0;
+    vertex_data[2].specular[0] = 0;
+    vertex_data[2].specular[1] = 0;
+    vertex_data[2].specular[2] = 0;
+    vertex_data[2].specular[3] = 0;
+
+    vertex_data[3].position[0] = GROUND_LO[0];
+    vertex_data[3].position[1] = GROUND_LO[1];
+    vertex_data[3].position[2] = GROUND_HI[2];
+    vertex_data[3].position[3] = 1.0;
+    vertex_data[3].normal[0]   = 0.0;
+    vertex_data[3].normal[1]   = 1.0;
+    vertex_data[3].normal[2]   = 0.0;
+    vertex_data[3].normal[3]   = 0.0;
+    vertex_data[3].texcoord[0] = TEX_GROUND_LO[0];
+    vertex_data[3].texcoord[1] = TEX_GROUND_HI[1];
+    vertex_data[3].shininess   = 0.0;
+    vertex_data[3].specular[0] = 0;
+    vertex_data[3].specular[1] = 0;
+    vertex_data[3].specular[2] = 0;
+    vertex_data[3].specular[3] = 0;
+
+    vertex_data[4].position[0] = WALL_LO[0];
+    vertex_data[4].position[1] = WALL_LO[1];
+    vertex_data[4].position[2] = WALL_LO[2];
+    vertex_data[4].position[3] = 1.0;
+    vertex_data[4].normal[0]   = 0.0;
+    vertex_data[4].normal[1]   = 0.0;
+    vertex_data[4].normal[2]   = -1.0;
+    vertex_data[4].normal[3]   = 0.0;
+    vertex_data[4].texcoord[0] = TEX_WALL_LO[0];
+    vertex_data[4].texcoord[1] = TEX_WALL_LO[1];
+    vertex_data[4].shininess   = 0.0;
+    vertex_data[4].specular[0] = 0;
+    vertex_data[4].specular[1] = 0;
+    vertex_data[4].specular[2] = 0;
+    vertex_data[4].specular[3] = 0;
+
+    vertex_data[5].position[0] = WALL_HI[0];
+    vertex_data[5].position[1] = WALL_LO[1];
+    vertex_data[5].position[2] = WALL_LO[2];
+    vertex_data[5].position[3] = 1.0;
+    vertex_data[5].normal[0]   = 0.0;
+    vertex_data[5].normal[1]   = 0.0;
+    vertex_data[5].normal[2]   = -1.0;
+    vertex_data[5].normal[3]   = 0.0;
+    vertex_data[5].texcoord[0] = TEX_WALL_HI[0];
+    vertex_data[5].texcoord[1] = TEX_WALL_LO[1];
+    vertex_data[5].shininess   = 0.0;
+    vertex_data[5].specular[0] = 0;
+    vertex_data[5].specular[1] = 0;
+    vertex_data[5].specular[2] = 0;
+    vertex_data[5].specular[3] = 0;
+
+    vertex_data[6].position[0] = WALL_HI[0];
+    vertex_data[6].position[1] = WALL_HI[1];
+    vertex_data[6].position[2] = WALL_LO[2];
+    vertex_data[6].position[3] = 1.0;
+    vertex_data[6].normal[0]   = 0.0;
+    vertex_data[6].normal[1]   = 0.0;
+    vertex_data[6].normal[2]   = -1.0;
+    vertex_data[6].normal[3]   = 0.0;
+    vertex_data[6].texcoord[0] = TEX_WALL_HI[0];
+    vertex_data[6].texcoord[1] = TEX_WALL_HI[1];
+    vertex_data[6].shininess   = 0.0;
+    vertex_data[6].specular[0] = 0;
+    vertex_data[6].specular[1] = 0;
+    vertex_data[6].specular[2] = 0;
+    vertex_data[6].specular[3] = 0;
+
+    vertex_data[7].position[0] = WALL_LO[0];
+    vertex_data[7].position[1] = WALL_HI[1];
+    vertex_data[7].position[2] = WALL_LO[2];
+    vertex_data[7].position[3] = 1.0;
+    vertex_data[7].normal[0]   = 0.0;
+    vertex_data[7].normal[1]   = 0.0;
+    vertex_data[7].normal[2]   = -1.0;
+    vertex_data[7].normal[3]   = 0.0;
+    vertex_data[7].texcoord[0] = TEX_WALL_LO[0];
+    vertex_data[7].texcoord[1] = TEX_WALL_HI[1];
+    vertex_data[7].shininess   = 0.0;
+    vertex_data[7].specular[0] = 0;
+    vertex_data[7].specular[1] = 0;
+    vertex_data[7].specular[2] = 0;
+    vertex_data[7].specular[3] = 0;
+
+    vertex_data[8].position[0] = FLAGPOLE_AXIS_XZ[0];
+    vertex_data[8].position[1] = FLAGPOLE_TRUCK_TOP;
+    vertex_data[8].position[2] = FLAGPOLE_AXIS_XZ[1];
+    vertex_data[8].position[3] = 1.0;
+    vertex_data[8].normal[0]   = 0.0;
+    vertex_data[8].normal[1]   = 1.0;
+    vertex_data[8].normal[2]   = 0.0;
+    vertex_data[8].normal[3]   = 0.0;
+    vertex_data[8].texcoord[0] = TEX_FLAGPOLE_LO[0];
+    vertex_data[8].texcoord[1] = t_truck_top;
+    vertex_data[8].shininess   = FLAGPOLE_SHININESS;
+    vertex_data[8].specular[0] = 0;
+    vertex_data[8].specular[1] = 0;
+    vertex_data[8].specular[2] = 0;
+    vertex_data[8].specular[3] = 0;
+
+    let mut vertex_i = 9;
+    for i in 0..FLAGPOLE_RES {
+        let sn: f32 = f32::sin(theta_step * (i as f32));
+        let cs: f32 = f32::cos(theta_step * (i as f32));
+        let s: f32 = TEX_FLAGPOLE_LO[0] + s_step * (i as f32);
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_TRUCK_TOP_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_TRUCK_TOP;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_TRUCK_TOP_RADIUS * sn;
+        vertex_data[vertex_i].position[3] = 1.0;
+        vertex_data[vertex_i].normal[0]   = cs * 0.5;
+        vertex_data[vertex_i].normal[1]   = f32::sqrt(3.0/4.0);
+        vertex_data[vertex_i].normal[2]   = sn * 0.5;
+        vertex_data[vertex_i].normal[3]   = 0.0;
+        vertex_data[vertex_i].texcoord[0] = s;
+        vertex_data[vertex_i].texcoord[1] = t_truck_top;
+        vertex_data[vertex_i].shininess   = FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_TRUCK_CROWN_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_TRUCK_CROWN;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_TRUCK_CROWN_RADIUS * sn;
+        vertex_data[vertex_i].position[3] = 1.0;
+        vertex_data[vertex_i].normal[0]   = cs;
+        vertex_data[vertex_i].normal[1]   = 0.0;
+        vertex_data[vertex_i].normal[2]   = sn;
+        vertex_data[vertex_i].normal[3]   = 0.0;
+        vertex_data[vertex_i].texcoord[0] = s;
+        vertex_data[vertex_i].texcoord[1] = t_truck_crown;
+        vertex_data[vertex_i].shininess   = FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_TRUCK_BOTTOM_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_TRUCK_BOTTOM;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_TRUCK_BOTTOM_RADIUS * sn;
+        vertex_data[vertex_i].position[3] = 1.0;
+        vertex_data[vertex_i].normal[0]   = cs * f32::sqrt(15.0/16.0);
+        vertex_data[vertex_i].normal[1]   = -0.25;
+        vertex_data[vertex_i].normal[2]   = sn * f32::sqrt(15.0/16.0);
+        vertex_data[vertex_i].normal[3]   = 0.0;
+        vertex_data[vertex_i].texcoord[0] = s;
+        vertex_data[vertex_i].texcoord[1] = t_truck_bottom;
+        vertex_data[vertex_i].shininess   = FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_SHAFT_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_SHAFT_TOP;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_SHAFT_RADIUS * sn;
+        vertex_data[vertex_i].position[3] = 1.0;
+        vertex_data[vertex_i].normal[0]   = cs;
+        vertex_data[vertex_i].normal[1]   = 0.0;
+        vertex_data[vertex_i].normal[2]   = sn;
+        vertex_data[vertex_i].normal[3]   = 0.0;
+        vertex_data[vertex_i].texcoord[0] = s;
+        vertex_data[vertex_i].texcoord[1] = t_shaft_top;
+        vertex_data[vertex_i].shininess   = FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_SHAFT_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_SHAFT_BOTTOM;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_TRUCK_BOTTOM_RADIUS * sn;
+        vertex_data[vertex_i].position[3] = 1.0;
+        vertex_data[vertex_i].normal[0]   = cs;
+        vertex_data[vertex_i].normal[1]   = 0.0;
+        vertex_data[vertex_i].normal[2]   = sn;
+        vertex_data[vertex_i].normal[3]   = 0.0;
+        vertex_data[vertex_i].texcoord[0] = s;
+        vertex_data[vertex_i].texcoord[1] = t_shaft_bottom;
+        vertex_data[vertex_i].shininess   = FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+
+        vertex_data[vertex_i].position[0]
+            = FLAGPOLE_AXIS_XZ[0] + FLAGPOLE_SHAFT_RADIUS * cs;
+        vertex_data[vertex_i].position[1] = FLAGPOLE_SHAFT_BOTTOM;
+        vertex_data[vertex_i].position[2]
+            = FLAGPOLE_AXIS_XZ[1] + FLAGPOLE_TRUCK_BOTTOM_RADIUS * sn;
+        vertex_data[vertex_i].position[3] =  1.0;
+        vertex_data[vertex_i].normal[0]   =  0.0;
+        vertex_data[vertex_i].normal[1]   = -1.0;
+        vertex_data[vertex_i].normal[2]   =  0.0;
+        vertex_data[vertex_i].normal[3]   =  0.0;
+        vertex_data[vertex_i].texcoord[0] =  s;
+        vertex_data[vertex_i].texcoord[1] =  t_shaft_bottom;
+        vertex_data[vertex_i].shininess   =  FLAGPOLE_SHININESS;
+        vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+        vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+        vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+        vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+        vertex_i += 1;
+    }
+
+    vertex_data[vertex_i].position[0] =  0.0;
+    vertex_data[vertex_i].position[1] =  FLAGPOLE_SHAFT_BOTTOM;
+    vertex_data[vertex_i].position[2] =  0.0;
+    vertex_data[vertex_i].position[3] =  1.0;
+    vertex_data[vertex_i].normal[0]   =  0.0;
+    vertex_data[vertex_i].normal[1]   = -1.0;
+    vertex_data[vertex_i].normal[2]   =  0.0;
+    vertex_data[vertex_i].normal[3]   =  0.0;
+    vertex_data[vertex_i].texcoord[0] =  0.5;
+    vertex_data[vertex_i].texcoord[1] =  t_shaft_bottom;
+    vertex_data[vertex_i].shininess   =  FLAGPOLE_SHININESS;
+    vertex_data[vertex_i].specular[0] = FLAGPOLE_SPECULAR[0];
+    vertex_data[vertex_i].specular[1] = FLAGPOLE_SPECULAR[1];
+    vertex_data[vertex_i].specular[2] = FLAGPOLE_SPECULAR[2];
+    vertex_data[vertex_i].specular[3] = FLAGPOLE_SPECULAR[3];
+
+    element_i = 0;
+
+    element_data[element_i] = 0;
+    element_i += 1;
+    element_data[element_i] = 1;
+    element_i += 1;
+    element_data[element_i] = 2;
+    element_i += 1;
+
+    element_data[element_i] = 0;
+    element_i += 1;
+    element_data[element_i] = 2;
+    element_i += 1;
+    element_data[element_i] = 3;
+    element_i += 1;
+
+    element_data[element_i] = 4;
+    element_i += 1;
+    element_data[element_i] = 5;
+    element_i += 1;
+    element_data[element_i] = 6;
+    element_i += 1;
+
+    element_data[element_i] = 4;
+    element_i += 1;
+    element_data[element_i] = 6;
+    element_i += 1;
+    element_data[element_i] = 7;
+    element_i += 1;
+
+    for i in 0..(FLAGPOLE_RES - 1) {
+        element_data[element_i] = 8;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i        ) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1)    ) as GLushort;
+        element_i += 1;
+
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i        ) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 1) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1)    ) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 1) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 1) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1)    ) as GLushort;
+        element_i += 1;
+
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 1) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 2) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 1) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 2) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 2) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 1) as GLushort;
+        element_i += 1;
+
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 2) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 3) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 2) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 3) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 3) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 2) as GLushort;
+        element_i += 1;
+
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 3) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 4) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 3) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 4) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 4) as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 3) as GLushort;
+        element_i += 1;
+
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*i     + 5) as GLushort;
+        element_i += 1;
+        element_data[element_i] = vertex_i as GLushort;
+        element_i += 1;
+        element_data[element_i] = 9 + (FLAGPOLE_SLICE*(i+1) + 5) as GLushort;
+        element_i += 1;
+    }
+
+    element_data[element_i] = 8;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1)    ) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9;
+    element_i += 1;
+
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1)    ) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 1) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 1) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 1;
+    element_i += 1;
+    element_data[element_i] = 9;
+    element_i += 1;
+
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 1) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 2) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 1;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 2) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 2;
+    element_i += 1;
+    element_data[element_i] = 9 + 1;
+    element_i += 1;
+
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 2) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 3) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 2;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 3) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 3;
+    element_i += 1;
+    element_data[element_i] = 9 + 2;
+    element_i += 1;
+
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 3) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 4) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 3;
+    element_i += 1;
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 4) as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 4;
+    element_i += 1;
+    element_data[element_i] = 9 + 3;
+    element_i += 1;
+
+    element_data[element_i] = 9 + (FLAGPOLE_SLICE*(FLAGPOLE_RES-1) + 5) as GLushort;
+    element_i += 1;
+    element_data[element_i] = vertex_i as GLushort;
+    element_i += 1;
+    element_data[element_i] = 9 + 5;
+    element_i += 1;
+
+    init_mesh(
+        out_mesh,
+        &vertex_data, vertex_count,
+        &element_data, element_count,
+        gl::STATIC_DRAW
+    );
 }
 /*
-void init_background_mesh(struct flag_mesh *out_mesh);
 void update_flag_mesh(
     struct flag_mesh const *mesh,
     struct flag_vertex *vertex_data,

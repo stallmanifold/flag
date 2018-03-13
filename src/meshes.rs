@@ -12,19 +12,19 @@ const FLAG_T_STEP: GLfloat = 1.0 / ((FLAG_Y_RES - 1) as GLfloat);
 
 
 pub struct FlagMesh {
-    vertex_buffer: GLuint, 
-    element_buffer: GLuint,
-    element_count: GLsizei,
-    texture: GLuint,
+    pub vertex_buffer: GLuint, 
+    pub element_buffer: GLuint,
+    pub element_count: GLsizei,
+    pub texture: GLuint,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct FlagVertex {
-    position: [GLfloat; 4],
-    normal: [GLfloat; 4],
-    texcoord: [GLfloat; 2],
-    shininess: GLfloat,
-    specular: [GLubyte; 4],
+    pub position: [GLfloat; 4],
+    pub normal: [GLfloat; 4],
+    pub texcoord: [GLfloat; 2],
+    pub shininess: GLfloat,
+    pub specular: [GLubyte; 4],
 }
 
 impl FlagVertex {

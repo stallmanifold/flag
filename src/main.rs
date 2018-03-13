@@ -226,12 +226,12 @@ fn make_flag_program(
     vertex_shader: &mut GLuint, 
     fragment_shader: &mut GLuint, program: &mut GLuint) -> isize {
 
-    *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "src/shaders/flag.v.glsl");
+    *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "shaders/flag.v.glsl");
     if *vertex_shader == 0 {
         return 0;
     }
 
-    *fragment_shader = gl_util::make_shader(gl::FRAGMENT_SHADER, "src/shaders/flag.f.glsl");
+    *fragment_shader = gl_util::make_shader(gl::FRAGMENT_SHADER, "shaders/flag.f.glsl");
     if *fragment_shader == 0 {
         return 0;
     }

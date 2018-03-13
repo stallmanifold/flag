@@ -71,6 +71,18 @@ fn update_p_matrix(matrix: &mut [GLfloat], w: i32, h: i32) {
     matrix[12] = 0.0; matrix[13] = 0.0; matrix[14] = r_w;  matrix[15] = 0.0;
 }
 
+const BASE_EYE_POSITION: [GLfloat ; 3]  = [0.5, -0.25, -1.25];
+
+fn update_mv_matrix(matrix: &mut [GLfloat], eye_offset: &[GLfloat]) {
+    matrix[ 0] = 1.0; matrix[ 1] = 0.0; matrix[ 2] = 0.0; matrix[ 3] = 0.0;
+    matrix[ 4] = 0.0; matrix[ 5] = 1.0; matrix[ 6] = 0.0; matrix[ 7] = 0.0;
+    matrix[ 8] = 0.0; matrix[ 9] = 0.0; matrix[10] = 1.0; matrix[11] = 0.0;
+    matrix[12] = -BASE_EYE_POSITION[0] - eye_offset[0];
+    matrix[13] = -BASE_EYE_POSITION[1] - eye_offset[1];
+    matrix[14] = -BASE_EYE_POSITION[2];
+    matrix[15] = 1.0;
+}
+
 fn main() {
     println!("Hello, world!");
 }

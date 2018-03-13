@@ -7,6 +7,7 @@ mod gl_util;
 mod vec_util;
 mod meshes;
 
+use glfw::{Glfw, Context};
 use gl::types::*;
 use std::os::raw;
 use std::mem;
@@ -129,7 +130,7 @@ macro_rules! offset_of {
     }
 }
 
-fn render_mesh(g_resources: &mut GResources, mesh: &meshes::FlagMesh) {
+fn render_mesh(g_resources: &GResources, mesh: &meshes::FlagMesh) {
     unsafe {
         gl::BindTexture(gl::TEXTURE_2D, mesh.texture);
 
@@ -211,7 +212,7 @@ fn enact_flag_program(
 }
 
 fn make_flag_program(
-    vertex_shader: &mut GLuint,
+    vertex_shader: &mut GLuint, 
     fragment_shader: &mut GLuint, program: &mut GLuint) -> isize {
 
     *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "flag.v.glsl");
@@ -335,6 +336,45 @@ fn reshape(g_resources: &mut GResources, w: i32, h: i32) {
     unsafe {
         gl::Viewport(0, 0, w, h);
     }
+}
+
+fn render(window: &mut glfw::Window, g_resources: &mut GResources) {
+    unsafe {
+        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+
+        gl::UseProgram(g_resources.flag_program.program);
+
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::Uniform1i(g_resources.flag_program.uniforms.texture, 0);
+
+        gl::UniformMatrix4fv(
+            g_resources.flag_program.uniforms.p_matrix,
+            1, gl::FALSE,
+            g_resources.p_matrix.as_ptr()
+        );
+
+        gl::UniformMatrix4fv(
+            g_resources.flag_program.uniforms.mv_matrix,
+            1, gl::FALSE,
+            g_resources.mv_matrix.as_ptr()
+        );
+
+        gl::EnableVertexAttribArray(g_resources.flag_program.attributes.position as GLuint);
+        gl::EnableVertexAttribArray(g_resources.flag_program.attributes.normal as GLuint);
+        gl::EnableVertexAttribArray(g_resources.flag_program.attributes.texcoord as GLuint);
+        gl::EnableVertexAttribArray(g_resources.flag_program.attributes.shininess as GLuint);
+        gl::EnableVertexAttribArray(g_resources.flag_program.attributes.specular as GLuint);
+
+        render_mesh(g_resources, &g_resources.flag);
+        render_mesh(g_resources, &g_resources.background);
+
+        gl::DisableVertexAttribArray(g_resources.flag_program.attributes.position as GLuint);
+        gl::DisableVertexAttribArray(g_resources.flag_program.attributes.normal as GLuint);
+        gl::DisableVertexAttribArray(g_resources.flag_program.attributes.texcoord as GLuint);
+        gl::DisableVertexAttribArray(g_resources.flag_program.attributes.shininess as GLuint);
+        gl::DisableVertexAttribArray(g_resources.flag_program.attributes.specular as GLuint);
+    }
+    window.swap_buffers();
 }
 
 fn main() {

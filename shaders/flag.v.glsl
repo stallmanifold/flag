@@ -1,4 +1,4 @@
-#version 110
+#version 150
 
 uniform mat4 p_matrix, mv_matrix;
 uniform sampler2D texture;
@@ -13,8 +13,7 @@ varying vec2 frag_texcoord;
 varying float frag_shininess;
 varying vec4 frag_specular;
 
-void main()
-{
+void main() {
     vec4 eye_position = mv_matrix * vec4(position, 1.0);
     gl_Position = p_matrix * eye_position;
     frag_position = eye_position.xyz;

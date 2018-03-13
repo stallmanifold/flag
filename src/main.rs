@@ -14,6 +14,7 @@ use std::mem;
 use std::ptr;
 use std::env;
 use std::f32;
+use std::ffi::CString;
 
 
 struct Uniforms {
@@ -195,30 +196,30 @@ fn enact_flag_program(
     g_resources.flag_program.program = program;
 
     unsafe {
-        //let texture_cstr = CString::new("texture").unwrap();
+        let texture_cstr = CString::new("texture").unwrap();
         g_resources.flag_program.uniforms.texture
-            = gl::GetUniformLocation(program, "texture".as_ptr() as *const i8);
-        //let p_matrix_cstr = CString::new("p_matrix").unwrap();
+            = gl::GetUniformLocation(program, texture_cstr.as_ptr());
+        let p_matrix_cstr = CString::new("p_matrix").unwrap();
         g_resources.flag_program.uniforms.p_matrix
-            = gl::GetUniformLocation(program, "p_matrix".as_ptr() as *const i8);
-        //let mv_matrix_cstr = CString::new("mv_matrix").unwrap();
+            = gl::GetUniformLocation(program, p_matrix_cstr.as_ptr());
+        let mv_matrix_cstr = CString::new("mv_matrix").unwrap();
         g_resources.flag_program.uniforms.mv_matrix
-            = gl::GetUniformLocation(program, "mv_matrix".as_ptr() as *const i8);
-        //let position_cstr = CString::new("position").unwrap();
+            = gl::GetUniformLocation(program, mv_matrix_cstr.as_ptr());
+        let position_cstr = CString::new("position").unwrap();
         g_resources.flag_program.attributes.position
-            = gl::GetAttribLocation(program, "position".as_ptr() as *const i8);
-        //let normal_cstr = CString::new("normal").unwrap();
+            = gl::GetAttribLocation(program, position_cstr.as_ptr());
+        let normal_cstr = CString::new("normal").unwrap();
         g_resources.flag_program.attributes.normal
-            = gl::GetAttribLocation(program, "normal".as_ptr() as *const i8);
-        //let texcoord_cstr = CString::new("texcoord").unwrap();
+            = gl::GetAttribLocation(program, normal_cstr.as_ptr());
+        let texcoord_cstr = CString::new("texcoord").unwrap();
         g_resources.flag_program.attributes.texcoord
-            = gl::GetAttribLocation(program, "texcoord".as_ptr() as *const i8);
-        //let shininess_cstr = CString::new("shininess").unwrap();
+            = gl::GetAttribLocation(program, texcoord_cstr.as_ptr());
+        let shininess_cstr = CString::new("shininess").unwrap();
         g_resources.flag_program.attributes.shininess
-            = gl::GetAttribLocation(program, "shininess".as_ptr() as *const i8);
-        //let specular_cstr = CString::new("specular").unwrap();
+            = gl::GetAttribLocation(program, shininess_cstr.as_ptr());
+        let specular_cstr = CString::new("specular").unwrap();
         g_resources.flag_program.attributes.specular
-            = gl::GetAttribLocation(program, "specular".as_ptr() as *const i8);
+            = gl::GetAttribLocation(program, specular_cstr.as_ptr());
         }
 }
 

@@ -295,6 +295,47 @@ fn make_resources(g_resources: &mut GResources) -> isize {
 
     return 1;
 }
+/*
+static void update(void)
+{
+    int milliseconds = glutGet(GLUT_ELAPSED_TIME);
+    GLfloat seconds = (GLfloat)milliseconds * (1.0f/1000.0f);
+
+    update_flag_mesh(&g_resources.flag, g_resources.flag_vertex_array, seconds);
+    glutPostRedisplay();
+}
+*/
+fn drag(g_resources: &mut GResources, x: i32, y: i32) {
+    let w: f32 = g_resources.window_size[0] as f32;
+    let h: f32 = g_resources.window_size[1] as f32;
+    g_resources.eye_offset[0] = (x as f32) / w - 0.5;
+    g_resources.eye_offset[1] = -(y as f32) / h + 0.5;
+    update_mv_matrix(&mut g_resources.mv_matrix, &g_resources.eye_offset);
+}
+/*
+static void mouse(int button, int state, int x, int y)
+{
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+        g_resources.eye_offset[0] = 0.0f;
+        g_resources.eye_offset[1] = 0.0f;
+        update_mv_matrix(g_resources.mv_matrix, g_resources.eye_offset);
+    }
+}
+*/
+fn keyboard(g_resources: &mut GResources, key: char, x: i32, y: i32) {
+    if key == 'r' || key == 'R' {
+        update_flag_program(g_resources);
+    }
+}
+
+fn reshape(g_resources: &mut GResources, w: i32, h: i32) {
+    g_resources.window_size[0] = w as f32;
+    g_resources.window_size[1] = h as f32;
+    update_p_matrix(&mut g_resources.p_matrix, w, h);
+    unsafe {
+        gl::Viewport(0, 0, w, h);
+    }
+}
 
 fn main() {
     println!("Hello, world!");

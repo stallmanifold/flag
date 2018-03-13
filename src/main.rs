@@ -312,10 +312,13 @@ fn make_resources() -> Option<GResources> {
     return Some(g_resources);
 }
 
-fn update(g_resources: &mut GResources, glfw: &Glfw, window: &mut glfw::Window) {
+fn update(g_resources: &mut GResources, glfw: &mut Glfw, window: &mut glfw::Window) {
     let seconds = glfw.get_time() as GLfloat;
     meshes::update_flag_mesh(&g_resources.flag, &mut g_resources.flag_vertex_array, seconds);
     window.swap_buffers();
+
+    // Poll events.
+    glfw.poll_events();
 }
 
 fn drag(g_resources: &mut GResources, x: i32, y: i32) {
@@ -397,7 +400,7 @@ fn handle_window_event(g_resources: &mut GResources, window: &mut glfw::Window, 
         glfw::WindowEvent::Key(key,_,_,_) => {
             keyboard(g_resources, key, 0, 0);
         },
-        glfw::WindowEvent::MouseButton(button, _, _) => {
+        glfw::WindowEvent::MouseButton(button, Action::Press, _) => {
             mouse(g_resources, button, 1, 0, 0);
         },
         glfw::WindowEvent::Size(w, h) => {
@@ -432,7 +435,9 @@ fn main() {
 
     // Loop until the user closes the window
     while !window.should_close() {
+        println!("rendering.");
         render(&mut g_resources, &mut window);
+        println!("updating.");
         update(&mut g_resources, &mut glfw, &mut window);
 
         for (time, event) in glfw::flush_messages(&events) {

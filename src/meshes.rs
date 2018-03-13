@@ -123,9 +123,8 @@ pub fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
 
     i = 0;
     let mut index = 0;
-    for t in 0..FLAG_Y_RES {
+    for t in 0..(FLAG_Y_RES - 1) {
         for s in 0..(FLAG_X_RES - 1) {
-            i += 1;
             element_data[i] = index;
             i += 1;
             element_data[i] = index + 1;
@@ -137,6 +136,7 @@ pub fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
             element_data[i] = index + FLAG_X_RES + 1;
             i += 1;
             element_data[i] = index + FLAG_X_RES;
+            i += 1;
 
             index += 1;
         }

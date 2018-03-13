@@ -226,12 +226,12 @@ fn make_flag_program(
     vertex_shader: &mut GLuint, 
     fragment_shader: &mut GLuint, program: &mut GLuint) -> isize {
 
-    *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "flag.v.glsl");
+    *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "src/shaders/flag.v.glsl");
     if *vertex_shader == 0 {
         return 0;
     }
 
-    *fragment_shader = gl_util::make_shader(gl::FRAGMENT_SHADER, "flag.f.glsl");
+    *fragment_shader = gl_util::make_shader(gl::FRAGMENT_SHADER, "src/shaders/flag.f.glsl");
     if *fragment_shader == 0 {
         return 0;
     }
@@ -276,22 +276,25 @@ fn make_resources() -> Option<GResources> {
     let mut vertex_shader: GLuint = 0;
     let mut fragment_shader: GLuint = 0;
     let mut program: GLuint = 0;
+
     let mut g_resources: GResources = GResources::new();
 
+    // Load meshes.
     g_resources.flag_vertex_array = meshes::init_flag_mesh(&mut g_resources.flag);
     meshes::init_background_mesh(&mut g_resources.background);
 
-    g_resources.flag.texture = gl_util::make_texture("flag.tga");
-    g_resources.background.texture = gl_util::make_texture("background.tga");
+    // Create textures.
+    g_resources.flag.texture = gl_util::make_texture("assets/flag.tga");
+    g_resources.background.texture = gl_util::make_texture("assets/background.tga");
 
     if g_resources.flag.texture == 0 || g_resources.background.texture == 0 {
         return None;
     }
-
+    println!("Exit.");
     if make_flag_program(&mut vertex_shader, &mut fragment_shader, &mut program) == 0 {
         return None;
     }
-
+    println!("Enter.");
     enact_flag_program(&mut g_resources, vertex_shader, fragment_shader, program);
 
     g_resources.eye_offset[0] = 0.0;
@@ -310,10 +313,7 @@ fn make_resources() -> Option<GResources> {
 }
 
 fn update(g_resources: &mut GResources, glfw: &Glfw, window: &mut glfw::Window) {
-    //let milliseconds = glfw.get_time() as GLfloat;
-    //let seconds: GLfloat = milliseconds * (1.0 / 1000.0);
     let seconds = glfw.get_time() as GLfloat;
-
     meshes::update_flag_mesh(&g_resources.flag, &mut g_resources.flag_vertex_array, seconds);
     window.swap_buffers();
 }

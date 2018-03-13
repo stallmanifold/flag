@@ -45,8 +45,8 @@ struct GResources {
     eye_offset: [GLfloat; 2],
     window_size: [GLfloat; 2],
 }
-
-static G_RESOURCES: GResources = GResources {
+/*
+static mut G_RESOURCES: GResources = GResources {
     flag: meshes::FlagMesh {
         vertex_buffer: 0, 
         element_buffer: 0,
@@ -82,7 +82,7 @@ static G_RESOURCES: GResources = GResources {
     eye_offset: [0.0; 2],
     window_size: [0.0; 2],
 };
-
+*/
 fn init_gl_state() {
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
@@ -129,33 +129,33 @@ macro_rules! offset_of {
     }
 }
 
-fn render_mesh(mesh: &meshes::FlagMesh) {
+fn render_mesh(g_resources: &mut GResources, mesh: &meshes::FlagMesh) {
     unsafe {
         gl::BindTexture(gl::TEXTURE_2D, mesh.texture);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, mesh.vertex_buffer);
         gl::VertexAttribPointer(
-            G_RESOURCES.flag_program.attributes.position as GLuint,
+            g_resources.flag_program.attributes.position as GLuint,
             3, gl::FLOAT, gl::FALSE, mem::size_of::<meshes::FlagVertex>() as GLint,
             offset_of!(meshes::FlagVertex, position) as *const raw::c_void
         );
         gl::VertexAttribPointer(
-            G_RESOURCES.flag_program.attributes.normal as GLuint,
+            g_resources.flag_program.attributes.normal as GLuint,
             3, gl::FLOAT, gl::FALSE, mem::size_of::<meshes::FlagVertex>() as GLint,
             offset_of!(meshes::FlagVertex, normal) as *const raw::c_void
         );
         gl::VertexAttribPointer(
-            G_RESOURCES.flag_program.attributes.texcoord as GLuint,
+            g_resources.flag_program.attributes.texcoord as GLuint,
             2, gl::FLOAT, gl::FALSE, mem::size_of::<meshes::FlagVertex>() as GLint,
             offset_of!(meshes::FlagVertex, texcoord) as *const raw::c_void
         );
         gl::VertexAttribPointer(
-            G_RESOURCES.flag_program.attributes.shininess as GLuint,
+            g_resources.flag_program.attributes.shininess as GLuint,
             1, gl::FLOAT, gl::FALSE, mem::size_of::<meshes::FlagVertex>() as GLint,
             offset_of!(meshes::FlagVertex, shininess) as *const raw::c_void
         );
         gl::VertexAttribPointer(
-            G_RESOURCES.flag_program.attributes.specular as GLuint,
+            g_resources.flag_program.attributes.specular as GLuint,
             4, gl::UNSIGNED_BYTE, gl::TRUE, mem::size_of::<meshes::FlagVertex>() as GLint,
             offset_of!(meshes::FlagVertex, specular) as *const raw::c_void
         );
@@ -168,6 +168,46 @@ fn render_mesh(mesh: &meshes::FlagMesh) {
             ptr::null()
         );
     }
+}
+
+const INITIAL_WINDOW_WIDTH: usize = 640;
+const INITIAL_WINDOW_HEIGHT: usize = 480;
+
+fn enact_flag_program(
+    g_resources: &mut GResources,
+    vertex_shader: GLuint, fragment_shader: GLuint, program: GLuint
+) {
+    g_resources.flag_program.vertex_shader = vertex_shader;
+    g_resources.flag_program.fragment_shader = fragment_shader;
+
+    g_resources.flag_program.program = program;
+
+    unsafe {
+        //let texture_cstr = CString::new("texture").unwrap();
+        g_resources.flag_program.uniforms.texture
+            = gl::GetUniformLocation(program, "texture".as_ptr() as *const i8);
+        //let p_matrix_cstr = CString::new("p_matrix").unwrap();
+        g_resources.flag_program.uniforms.p_matrix
+            = gl::GetUniformLocation(program, "p_matrix".as_ptr() as *const i8);
+        //let mv_matrix_cstr = CString::new("mv_matrix").unwrap();
+        g_resources.flag_program.uniforms.mv_matrix
+            = gl::GetUniformLocation(program, "mv_matrix".as_ptr() as *const i8);
+        //let position_cstr = CString::new("position").unwrap();
+        g_resources.flag_program.attributes.position
+            = gl::GetAttribLocation(program, "position".as_ptr() as *const i8);
+        //let normal_cstr = CString::new("normal").unwrap();
+        g_resources.flag_program.attributes.normal
+            = gl::GetAttribLocation(program, "normal".as_ptr() as *const i8);
+        //let texcoord_cstr = CString::new("texcoord").unwrap();
+        g_resources.flag_program.attributes.texcoord
+            = gl::GetAttribLocation(program, "texcoord".as_ptr() as *const i8);
+        //let shininess_cstr = CString::new("shininess").unwrap();
+        g_resources.flag_program.attributes.shininess
+            = gl::GetAttribLocation(program, "shininess".as_ptr() as *const i8);
+        //let specular_cstr = CString::new("specular").unwrap();
+        g_resources.flag_program.attributes.specular
+            = gl::GetAttribLocation(program, "specular".as_ptr() as *const i8);
+        }
 }
 
 fn main() {

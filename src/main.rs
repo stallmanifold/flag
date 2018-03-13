@@ -290,11 +290,11 @@ fn make_resources() -> Option<GResources> {
     if g_resources.flag.texture == 0 || g_resources.background.texture == 0 {
         return None;
     }
-    println!("Exit.");
+
     if make_flag_program(&mut vertex_shader, &mut fragment_shader, &mut program) == 0 {
         return None;
     }
-    println!("Enter.");
+
     enact_flag_program(&mut g_resources, vertex_shader, fragment_shader, program);
 
     g_resources.eye_offset[0] = 0.0;
@@ -315,7 +315,6 @@ fn make_resources() -> Option<GResources> {
 fn update(g_resources: &mut GResources, glfw: &mut Glfw, window: &mut glfw::Window) {
     let seconds = glfw.get_time() as GLfloat;
     meshes::update_flag_mesh(&g_resources.flag, &mut g_resources.flag_vertex_array, seconds);
-    window.swap_buffers();
 
     // Poll events.
     glfw.poll_events();
@@ -431,14 +430,15 @@ fn main() {
     // Load the OpenGl function pointers.
     gl::load_with(|symbol| { window.get_proc_address(symbol) as *const _ });
 
+    // Initialize GL.
+    init_gl_state();
+
     let mut g_resources = make_resources().expect("Failed to load resources.");
 
     // Loop until the user closes the window
     while !window.should_close() {
-        println!("rendering.");
-        render(&mut g_resources, &mut window);
-        println!("updating.");
         update(&mut g_resources, &mut glfw, &mut window);
+        render(&mut g_resources, &mut window);
 
         for (time, event) in glfw::flush_messages(&events) {
             handle_window_event(&mut g_resources, &mut window, (time, event));

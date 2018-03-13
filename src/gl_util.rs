@@ -4,7 +4,7 @@ use std::ptr;
 use file_util;
 
 
-fn make_texture(filename: &str) -> GLuint {
+pub fn make_texture(filename: &str) -> GLuint {
     let (pixels, height, width) = match file_util::read_tga(filename) {
         Ok(tuple) => tuple,
         Err(_) => return 0,
@@ -29,7 +29,7 @@ fn make_texture(filename: &str) -> GLuint {
     texture
 }
 
-fn make_shader(shader_type: GLenum, filename: &str) -> GLuint {
+pub fn make_shader(shader_type: GLenum, filename: &str) -> GLuint {
     let source = match file_util::file_contents(filename) {
         Ok(val) => val,
         Err(_) => return 0,
@@ -60,7 +60,7 @@ fn make_shader(shader_type: GLenum, filename: &str) -> GLuint {
     }
 }
 
-fn make_program(vertex_shader: GLuint, fragment_shader: GLuint) -> GLuint {
+pub fn make_program(vertex_shader: GLuint, fragment_shader: GLuint) -> GLuint {
     let mut program_ok: GLint = 0;
     unsafe {
         let program = gl::CreateProgram();
@@ -86,3 +86,4 @@ fn make_program(vertex_shader: GLuint, fragment_shader: GLuint) -> GLuint {
         program
     }
 }
+

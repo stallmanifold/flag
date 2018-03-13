@@ -210,6 +210,56 @@ fn enact_flag_program(
         }
 }
 
+fn make_flag_program(
+    vertex_shader: &mut GLuint,
+    fragment_shader: &mut GLuint, program: &mut GLuint) -> isize {
+
+    *vertex_shader = gl_util::make_shader(gl::VERTEX_SHADER, "flag.v.glsl");
+    if *vertex_shader == 0 {
+        return 0;
+    }
+
+    *fragment_shader = gl_util::make_shader(gl::FRAGMENT_SHADER, "flag.f.glsl");
+    if *fragment_shader == 0 {
+        return 0;
+    }
+
+    *program = gl_util::make_program(*vertex_shader, *fragment_shader);
+    if *program == 0 {
+        return 0;
+    }
+
+    return 1;
+}
+
+fn delete_flag_program(g_resources: &GResources) {
+    unsafe {
+        gl::DetachShader(
+            g_resources.flag_program.program,
+            g_resources.flag_program.vertex_shader
+        );
+        gl::DetachShader(
+            g_resources.flag_program.program,
+            g_resources.flag_program.fragment_shader
+        );
+        gl::DeleteProgram(g_resources.flag_program.program);
+        gl::DeleteShader(g_resources.flag_program.vertex_shader);
+        gl::DeleteShader(g_resources.flag_program.fragment_shader);
+    }
+}
+
+fn update_flag_program(g_resources: &mut GResources) {
+    println!("reloading program\n");
+    let mut vertex_shader: GLuint = 0; 
+    let mut fragment_shader: GLuint = 0; 
+    let mut program: GLuint = 0;
+
+    if make_flag_program(&mut vertex_shader, &mut fragment_shader, &mut program) != 0 {
+        delete_flag_program(g_resources);
+        enact_flag_program(g_resources, vertex_shader, fragment_shader, program);
+    }
+}
+
 fn main() {
     println!("Hello, world!");
 }

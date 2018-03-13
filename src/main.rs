@@ -397,11 +397,8 @@ fn handle_window_event(g_resources: &mut GResources, window: &mut glfw::Window, 
         glfw::WindowEvent::Key(key,_,_,_) => {
             keyboard(g_resources, key, 0, 0);
         },
-        glfw::WindowEvent::MouseButton(button, Action::Repeat, _) => {
-            mouse(g_resources, button, 1, 0, 0);
-        },
         glfw::WindowEvent::MouseButton(button, _, _) => {
-            mouse(g_resources, button, 0, 0, 0);
+            mouse(g_resources, button, 1, 0, 0);
         },
         glfw::WindowEvent::Size(w, h) => {
             reshape(g_resources, w, h);

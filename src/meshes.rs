@@ -39,7 +39,7 @@ impl FlagVertex {
     }
 }
 
-fn init_mesh(
+pub fn init_mesh(
     out_mesh: &mut FlagMesh, 
     vertex_data: &[FlagVertex], vertex_count: GLsizei,
     element_data: &[GLushort], element_count: GLsizei, 
@@ -68,7 +68,7 @@ fn init_mesh(
     }
 }
 
-fn calculate_flag_vertex(
+pub fn calculate_flag_vertex(
     v: &mut FlagVertex,
     s: GLfloat, t: GLfloat, time: GLfloat
 ) {
@@ -96,7 +96,7 @@ fn calculate_flag_vertex(
     v.normal[3] = 0.0;
 }
 
-fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
+pub fn init_flag_mesh(out_mesh: &mut FlagMesh) -> Vec<FlagVertex> {
     let mut vertex_data = vec![FlagVertex::zero(); FLAG_VERTEX_COUNT as usize];
     let element_count = 6 * (FLAG_X_RES - 1) * (FLAG_Y_RES - 1);
     let mut element_data = vec![0 as GLushort; element_count as usize];
@@ -165,7 +165,7 @@ const FLAGPOLE_TRUCK_BOTTOM_RADIUS: GLfloat = 0.015;
 const FLAGPOLE_SHAFT_RADIUS: GLfloat        = 0.010;
 const FLAGPOLE_SHININESS: GLfloat           = 4.0;
 
-fn init_background_mesh(out_mesh: &mut FlagMesh) {
+pub fn init_background_mesh(out_mesh: &mut FlagMesh) {
     const FLAGPOLE_RES: GLsizei = 16;
     const FLAGPOLE_SLICE: GLsizei = 6;
 
@@ -671,7 +671,7 @@ fn init_background_mesh(out_mesh: &mut FlagMesh) {
     );
 }
 
-fn update_flag_mesh(
+pub fn update_flag_mesh(
     mesh: &FlagMesh, vertex_data: &mut [FlagVertex], time: GLfloat
 ) {
     let mut i = 0;

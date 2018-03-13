@@ -260,6 +260,42 @@ fn update_flag_program(g_resources: &mut GResources) {
     }
 }
 
+fn make_resources(g_resources: &mut GResources) -> isize {
+    let mut vertex_shader: GLuint = 0;
+    let mut fragment_shader: GLuint = 0;
+    let mut program: GLuint = 0;
+
+    g_resources.flag_vertex_array = meshes::init_flag_mesh(&mut g_resources.flag);
+    meshes::init_background_mesh(&mut g_resources.background);
+
+    g_resources.flag.texture = gl_util::make_texture("flag.tga");
+    g_resources.background.texture = gl_util::make_texture("background.tga");
+
+    if g_resources.flag.texture == 0 || g_resources.background.texture == 0 {
+        return 0;
+    }
+
+    if make_flag_program(&mut vertex_shader, &mut fragment_shader, &mut program) == 0 {
+        return 0;
+    }
+
+    enact_flag_program(g_resources, vertex_shader, fragment_shader, program);
+
+    g_resources.eye_offset[0] = 0.0;
+    g_resources.eye_offset[1] = 0.0;
+    g_resources.window_size[0] = INITIAL_WINDOW_WIDTH as GLfloat;
+    g_resources.window_size[1] = INITIAL_WINDOW_HEIGHT as GLfloat;
+
+    update_p_matrix(
+        &mut g_resources.p_matrix,
+        INITIAL_WINDOW_WIDTH as GLint,
+        INITIAL_WINDOW_HEIGHT as GLint
+    );
+    update_mv_matrix(&mut g_resources.mv_matrix, &g_resources.eye_offset);
+
+    return 1;
+}
+
 fn main() {
     println!("Hello, world!");
 }

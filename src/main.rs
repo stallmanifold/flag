@@ -7,11 +7,13 @@ mod gl_util;
 mod vec_util;
 mod meshes;
 
-use glfw::{Glfw, Context};
+use glfw::{Glfw, Action, Context, Key};
 use gl::types::*;
 use std::os::raw;
 use std::mem;
 use std::ptr;
+use std::env;
+use std::f32;
 
 
 struct Uniforms {
@@ -46,44 +48,53 @@ struct GResources {
     eye_offset: [GLfloat; 2],
     window_size: [GLfloat; 2],
 }
-/*
-static mut G_RESOURCES: GResources = GResources {
-    flag: meshes::FlagMesh {
-        vertex_buffer: 0, 
-        element_buffer: 0,
-        element_count: 0,
-        texture: 0,
-    },
-    background: meshes::FlagMesh {
-        vertex_buffer: 0, 
-        element_buffer: 0,
-        element_count: 0,
-        texture: 0,
-    },
-    flag_vertex_array: vec![],
-    flag_program: FlagProgram {
-        vertex_shader: 0,
-        fragment_shader: 0,
-        program: 0,
-        uniforms: Uniforms {
-            texture: 0,
-            p_matrix: 0,
-            mv_matrix: 0,
-        },
-        attributes: Attributes {
-            position: 0,
-            normal: 0,
-            texcoord: 0,
-            shininess: 0,
-            specular: 0,
-        },
-    },
-    p_matrix: [0.0; 16],
-    mv_matrix: [0.0; 16],
-    eye_offset: [0.0; 2],
-    window_size: [0.0; 2],
-};
-*/
+
+impl GResources {
+    fn new() -> GResources {
+        GResources {
+            flag: meshes::FlagMesh {
+                vertex_buffer: 0,
+                element_buffer: 0,
+                element_count: 0,
+                texture: 0,
+            },
+            background: meshes::FlagMesh {
+                vertex_buffer: 0,
+                element_buffer: 0,
+                element_count: 0,
+                texture: 0,
+            },
+            flag_vertex_array: vec![],
+            flag_program: FlagProgram {
+                vertex_shader: 0,
+                fragment_shader: 0,
+                program: 0,
+                uniforms: Uniforms {
+                    texture: 0,
+                    p_matrix: 0,
+                    mv_matrix: 0,
+                },
+                attributes: Attributes {
+                    position: 0,
+                    normal: 0,
+                    texcoord: 0,
+                    shininess: 0,
+                    specular: 0,
+                },
+            },
+            p_matrix: [0.0; 16],
+            mv_matrix: [0.0; 16],
+            eye_offset: [0.0; 2],
+            window_size: [0.0; 2],
+        }
+    }
+
+    fn cleanup(&self) {
+
+    }
+}
+
+
 fn init_gl_state() {
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
@@ -171,8 +182,8 @@ fn render_mesh(g_resources: &GResources, mesh: &meshes::FlagMesh) {
     }
 }
 
-const INITIAL_WINDOW_WIDTH: usize = 640;
-const INITIAL_WINDOW_HEIGHT: usize = 480;
+const INITIAL_WINDOW_WIDTH: u32 = 640;
+const INITIAL_WINDOW_HEIGHT: u32 = 480;
 
 fn enact_flag_program(
     g_resources: &mut GResources,
@@ -261,10 +272,11 @@ fn update_flag_program(g_resources: &mut GResources) {
     }
 }
 
-fn make_resources(g_resources: &mut GResources) -> isize {
+fn make_resources() -> Option<GResources> {
     let mut vertex_shader: GLuint = 0;
     let mut fragment_shader: GLuint = 0;
     let mut program: GLuint = 0;
+    let mut g_resources: GResources = GResources::new();
 
     g_resources.flag_vertex_array = meshes::init_flag_mesh(&mut g_resources.flag);
     meshes::init_background_mesh(&mut g_resources.background);
@@ -273,14 +285,14 @@ fn make_resources(g_resources: &mut GResources) -> isize {
     g_resources.background.texture = gl_util::make_texture("background.tga");
 
     if g_resources.flag.texture == 0 || g_resources.background.texture == 0 {
-        return 0;
+        return None;
     }
 
     if make_flag_program(&mut vertex_shader, &mut fragment_shader, &mut program) == 0 {
-        return 0;
+        return None;
     }
 
-    enact_flag_program(g_resources, vertex_shader, fragment_shader, program);
+    enact_flag_program(&mut g_resources, vertex_shader, fragment_shader, program);
 
     g_resources.eye_offset[0] = 0.0;
     g_resources.eye_offset[1] = 0.0;
@@ -294,16 +306,15 @@ fn make_resources(g_resources: &mut GResources) -> isize {
     );
     update_mv_matrix(&mut g_resources.mv_matrix, &g_resources.eye_offset);
 
-    return 1;
+    return Some(g_resources);
 }
 
-fn update(glfw: &Glfw, window: &mut glfw::Window, g_resources: &mut GResources) {
+fn update(g_resources: &mut GResources, glfw: &Glfw, window: &mut glfw::Window) {
     //let milliseconds = glfw.get_time() as GLfloat;
     //let seconds: GLfloat = milliseconds * (1.0 / 1000.0);
     let seconds = glfw.get_time() as GLfloat;
 
-    meshes::update_flag_mesh(&g_resources.flag, &g_resources.flag_vertex_array, seconds);
-    //glutPostRedisplay();
+    meshes::update_flag_mesh(&g_resources.flag, &mut g_resources.flag_vertex_array, seconds);
     window.swap_buffers();
 }
 
@@ -315,16 +326,16 @@ fn drag(g_resources: &mut GResources, x: i32, y: i32) {
     update_mv_matrix(&mut g_resources.mv_matrix, &g_resources.eye_offset);
 }
 
-fn mouse(g_resources: &mut GResources, button: i32, state: i32, x: i32, y: i32) {
-    if (button == glfw::ffi::MOUSE_BUTTON_LEFT) /* && (state == GLUT_UP) */ {
+fn mouse(g_resources: &mut GResources, button: glfw::MouseButton, state: i32, x: i32, y: i32) {
+    if button == glfw::MouseButton::Button1 && state == 1 /* && (state == GLUT_UP) */ {
         g_resources.eye_offset[0] = 0.0;
         g_resources.eye_offset[1] = 0.0;
         update_mv_matrix(&mut g_resources.mv_matrix, &g_resources.eye_offset);
     }
 }
 
-fn keyboard(g_resources: &mut GResources, key: char, x: i32, y: i32) {
-    if (key == 'r') || (key == 'R') {
+fn keyboard(g_resources: &mut GResources, key: Key, x: i32, y: i32) {
+    if key == Key::R {
         update_flag_program(g_resources);
     }
 }
@@ -338,7 +349,7 @@ fn reshape(g_resources: &mut GResources, w: i32, h: i32) {
     }
 }
 
-fn render(window: &mut glfw::Window, g_resources: &mut GResources) {
+fn render(g_resources: &mut GResources, window: &mut glfw::Window) {
     unsafe {
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
@@ -377,6 +388,60 @@ fn render(window: &mut glfw::Window, g_resources: &mut GResources) {
     window.swap_buffers();
 }
 
+fn handle_window_event(g_resources: &mut GResources, window: &mut glfw::Window, (time, event): (f64, glfw::WindowEvent)) {
+    println!("TIME: {:?}; EVENT: {:?}", time, event);
+    match event {
+        glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+            window.set_should_close(true);
+        }
+        glfw::WindowEvent::Key(key,_,_,_) => {
+            keyboard(g_resources, key, 0, 0);
+        },
+        glfw::WindowEvent::MouseButton(button, Action::Repeat, _) => {
+            mouse(g_resources, button, 1, 0, 0);
+        },
+        glfw::WindowEvent::MouseButton(button, _, _) => {
+            mouse(g_resources, button, 0, 0, 0);
+        },
+        glfw::WindowEvent::Size(w, h) => {
+            reshape(g_resources, w, h);
+        }
+        _ => {
+
+        }
+
+    }
+}
+
 fn main() {
-    println!("Hello, world!");
+    // Initialize our resources.
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+
+    // Create a windowed mode window and its OpenGL context
+    let (mut window, events) = glfw.create_window(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, "Flag", glfw::WindowMode::Windowed)
+        .expect("Failed to create GLFW window.");
+
+    // Make the window's context current.
+    window.make_current();
+    window.set_key_polling(true);
+    window.set_mouse_button_polling(true);
+    window.set_size_polling(true);
+    window.set_refresh_polling(true);
+
+    // Load the OpenGl function pointers.
+    gl::load_with(|symbol| { window.get_proc_address(symbol) as *const _ });
+
+    let mut g_resources = make_resources().expect("Failed to load resources.");
+
+    // Loop until the user closes the window
+    while !window.should_close() {
+        render(&mut g_resources, &mut window);
+        update(&mut g_resources, &mut glfw, &mut window);
+
+        for (time, event) in glfw::flush_messages(&events) {
+            handle_window_event(&mut g_resources, &mut window, (time, event));
+        }
+    }
+
+    g_resources.cleanup();
 }

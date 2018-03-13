@@ -672,7 +672,7 @@ pub fn init_background_mesh(out_mesh: &mut FlagMesh) {
 }
 
 pub fn update_flag_mesh(
-    mesh: &FlagMesh, vertex_data: &[FlagVertex], time: GLfloat
+    mesh: &FlagMesh, vertex_data: &mut [FlagVertex], time: GLfloat
 ) {
     let mut i = 0;
     for t in 0..FLAG_Y_RES {
